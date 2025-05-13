@@ -1,1 +1,143 @@
 # Database-Management-System_wk-8
+Question 1: Build a Complete Database Management System
+Objective:
+Design and implement a full-featured database using only MySQL.
+
+What to do:
+
+Choose a real-world use case (e.g., Library Management, Student Records, Clinic Booking System, Inventory Tracking, etc.)
+
+Create a well-structured relational database using SQL.
+
+Use SQL to create:
+
+Tables with proper constraints (PK, FK, NOT NULL, UNIQUE)
+
+Relationships (1-1, 1-M, M-M where needed)
+
+Deliverables:
+
+A single .sql file containing your:
+
+CREATE TABLE statements
+
+-- Library Management System Database
+-- Created by [Your Name]
+-- Date: [Current Date]
+
+-- Create the database
+DROP DATABASE IF EXISTS library_management;
+CREATE DATABASE library_management;
+USE library_management;
+
+-- Members table (1-to-M with Loans)
+CREATE TABLE members (
+    member_id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    join_date DATE NOT NULL DEFAULT (CURRENT_DATE),
+    membership_status ENUM('Active', 'Expired', 'Suspended') NOT NULL DEFAULT 'Active',
+    address VARCHAR(200)
+) ENGINE=InnoDB;
+
+-- Books table (1-to-M with Book_Copies, M-to-M with Authors)
+CREATE TABLE books (
+    book_id INT AUTO_INCREMENT PRIMARY KEY,
+    isbn VARCHAR(20) UNIQUE NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    publisher_id INT NOT NULL,
+    publication_year YEAR,
+    genre VARCHAR(50),
+    edition INT DEFAULT 1,
+    language VARCHAR(30) DEFAULT 'English',
+    CONSTRAINT chk_publication_year CHECK (publication_year BETWEEN 1900 AND YEAR(CURRENT_DATE))
+) ENGINE=InnoDB;
+
+-- Authors table (M-to-M with Books)
+CREATE TABLE authors (
+    author_id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    birth_date DATE,
+    nationality VARCHAR(50),
+    CONSTRAINT uc_author_name UNIQUE (first_name, last_name)
+) ENGINE=InnoDB;
+
+-- Book-Author junction table (M-to-M relationship)
+CREATE TABLE book_authors (
+    book_id INT NOT NULL,
+    author_id INT NOT NULL,
+    PRIMARY KEY (book_id, author_id),
+    FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES authors(author_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Publishers table (1-to-M with Books)
+CREATE TABLE publishers (
+    publisher_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    founded_year YEAR,
+    headquarters VARCHAR(100)
+) ENGINE=InnoDB;
+
+-- Add publisher foreign key to books (after publishers table exists)
+ALTER TABLE books
+ADD CONSTRAINT fk_book_publisher
+FOREIGN KEY (publisher_id) REFERENCES publishers(publisher_id);
+
+-- Book copies table (1-to-M with Loans)
+CREATE TABLE book_copies (
+    copy_id INT AUTO_INCREMENT PRIMARY KEY,
+    book_id INT NOT NULL,
+    acquisition_date DATE NOT NULL DEFAULT (CURRENT_DATE),
+    status ENUM('Available', 'Checked Out', 'Lost', 'Damaged') NOT NULL DEFAULT 'Available',
+    location VARCHAR(50) NOT NULL DEFAULT 'Main Shelf',
+    FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Loans table (M-to-1 with Members and Book_Copies)
+CREATE TABLE loans (
+    loan_id INT AUTO_INCREMENT PRIMARY KEY,
+    copy_id INT NOT NULL,
+    member_id INT NOT NULL,
+    checkout_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    due_date DATE NOT NULL,
+    return_date DATE,
+    late_fee DECIMAL(10,2) DEFAULT 0.00,
+    FOREIGN KEY (copy_id) REFERENCES book_copies(copy_id),
+    FOREIGN KEY (member_id) REFERENCES members(member_id),
+    CONSTRAINT chk_due_date CHECK (due_date > checkout_date),
+    CONSTRAINT chk_return_date CHECK (return_date IS NULL OR return_date >= checkout_date)
+) ENGINE=InnoDB;
+
+-- Fines table (1-to-1 with Loans)
+CREATE TABLE fines (
+    fine_id INT AUTO_INCREMENT PRIMARY KEY,
+    loan_id INT UNIQUE NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    issue_date DATE NOT NULL DEFAULT (CURRENT_DATE),
+    payment_status ENUM('Paid', 'Unpaid', 'Waived') NOT NULL DEFAULT 'Unpaid',
+    FOREIGN KEY (loan_id) REFERENCES loans(loan_id)
+) ENGINE=InnoDB;
+
+-- Staff table
+CREATE TABLE staff (
+    staff_id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    hire_date DATE NOT NULL DEFAULT (CURRENT_DATE),
+    position VARCHAR(50) NOT NULL,
+    salary DECIMAL(12,2),
+    supervisor_id INT,
+    FOREIGN KEY (supervisor_id) REFERENCES staff(staff_id)
+) ENGINE=InnoDB;
+
+-- Create indexes for performance
+CREATE INDEX idx_book_title ON books(title);
+CREATE INDEX idx_author_name ON authors(last_name, first_name);
+CREATE INDEX idx_member_name ON members(last_name, first_name);
+CREATE INDEX idx_loan_dates ON loans(checkout_date, due_date, return_date);
